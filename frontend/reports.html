@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-bs-theme="light">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Relatórios — EstoqueCar</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="assets/css/main.css" />
+</head>
+
+<body>
+
+  <div class="app-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-icon">🔧</div>
+        <div class="brand-name">EstoqueCar</div>
+        <div class="brand-sub">Gestão de Oficinas</div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section-label">Principal</div>
+        <div class="nav-item" onclick="navigate('dashboard.html')">
+          <span class="nav-icon">📊</span> Dashboard
+        </div>
+        <div class="nav-item" onclick="navigate('products.html')">
+          <span class="nav-icon">🔩</span> Produtos / Peças
+        </div>
+        <div class="nav-item" onclick="navigate('stock-entry.html')">
+          <span class="nav-icon">📦</span> Entrada de Estoque
+        </div>
+
+        <div class="nav-section-label">Operacional</div>
+        <div class="nav-item" onclick="navigate('orders.html')">
+          <span class="nav-icon">📋</span> Pedidos
+        </div>
+        <div class="nav-item active" onclick="navigate('reports.html')">
+          <span class="nav-icon">📄</span> Relatórios
+        </div>
+
+        <div class="nav-section-label admin-only">Administração</div>
+        <div class="nav-item admin-only" onclick="navigate('clients.html')">
+          <span class="nav-icon">👥</span> Clientes / Fornecedores
+        </div>
+        <div class="nav-item admin-only" id="navUsers" onclick="navigate('users.html')">
+          <span class="nav-icon">⚙️</span> Usuários
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar" id="userAvatar">A</div>
+          <div>
+            <div style="color:#fff;font-weight:600;font-size:0.82rem;" id="userName">Carregando...</div>
+            <div style="font-size:0.7rem;opacity:0.6;" id="userRole">—</div>
+          </div>
+        </div>
+        <button class="btn btn-secondary btn-sm mt-2 w-full" onclick="logout()" style="font-size:0.75rem;">
+          Sair
+        </button>
+      </div>
+    </aside>
+
+    <div class="main-content">
+
+      <div class="topbar">
+        <button class="btn btn-link sidebar-toggle" onclick="toggleSidebar()">☰</button>
+        
+        <span class="topbar-title">Relatórios</span>
+
+        <div class="topbar-actions">
+          <button class="btn-icon" onclick="toggleTheme()" title="Alternar tema">🌙</button>
+          <button class="btn btn-sm btn-outline-danger" onclick="logout()">Sair</button>
+        </div>
+      </div>
+
+      <div class="page-content">
+        <div class="row g-4">
+
+          <!-- Relatório de Estoque -->
+          <div class="col-md-4">
+            <div class="card h-100">
+              <div class="card-header"><strong>📦 Relatório de Estoque</strong></div>
+              <div class="card-body d-flex flex-column">
+                <p class="text-muted">Posição atual de todos os produtos em estoque com valores e status de criticidade.
+                </p>
+                <div class="mt-auto">
+                  <div class="d-grid gap-2">
+                    <button class="btn btn-outline-danger" onclick="Reports.download('stock','pdf')">
+                      📄 Exportar PDF
+                    </button>
+                    <button class="btn btn-outline-success" onclick="Reports.download('stock','excel')">
+                      📊 Exportar Excel
+                    </button>
+                    <button class="btn btn-outline-secondary" onclick="Reports.preview('stock')">
+                      👁️ Visualizar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Relatório de Movimentações -->
+          <div class="col-md-4">
+            <div class="card h-100">
+              <div class="card-header"><strong>🔄 Relatório de Movimentações</strong></div>
+              <div class="card-body d-flex flex-column">
+                <p class="text-muted">Histórico de entradas e saídas de estoque no período selecionado.</p>
+                <div class="mb-3">
+                  <label class="form-label small">Período</label>
+                  <div class="row g-2">
+                    <div class="col-6">
+                      <input type="date" class="form-control form-control-sm" id="mov-date-start" />
+                    </div>
+                    <div class="col-6">
+                      <input type="date" class="form-control form-control-sm" id="mov-date-end" />
+                    </div>
+                  </div>
+                </div>
+                <div class="mt-auto">
+                  <div class="d-grid gap-2">
+                    <button class="btn btn-outline-danger" onclick="Reports.download('movements','pdf')">
+                      📄 Exportar PDF
+                    </button>
+                    <button class="btn btn-outline-success" onclick="Reports.download('movements','excel')">
+                      📊 Exportar Excel
+                    </button>
+                    <button class="btn btn-outline-secondary" onclick="Reports.preview('movements')">
+                      👁️ Visualizar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Relatório de Pedidos -->
+          <div class="col-md-4">
+            <div class="card h-100">
+              <div class="card-header"><strong>📋 Relatório de Pedidos</strong></div>
+              <div class="card-body d-flex flex-column">
+                <p class="text-muted">Consolidado de pedidos com totais e status no período selecionado.</p>
+                <div class="mb-3">
+                  <label class="form-label small">Período</label>
+                  <div class="row g-2">
+                    <div class="col-6">
+                      <input type="date" class="form-control form-control-sm" id="ord-date-start" />
+                    </div>
+                    <div class="col-6">
+                      <input type="date" class="form-control form-control-sm" id="ord-date-end" />
+                    </div>
+                  </div>
+                </div>
+                <div class="mt-auto">
+                  <div class="d-grid gap-2">
+                    <button class="btn btn-outline-danger" onclick="Reports.download('orders','pdf')">
+                      📄 Exportar PDF
+                    </button>
+                    <button class="btn btn-outline-success" onclick="Reports.download('orders','excel')">
+                      📊 Exportar Excel
+                    </button>
+                    <button class="btn btn-outline-secondary" onclick="Reports.preview('orders')">
+                      👁️ Visualizar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Preview / Tabela de resultado -->
+          <div class="col-12" id="preview-section" style="display:none;">
+            <div class="card">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <strong id="preview-title">Visualização</strong>
+                <button class="btn btn-sm btn-outline-secondary"
+                  onclick="document.getElementById('preview-section').style.display='none'">✖ Fechar</button>
+              </div>
+              <div class="card-body p-0">
+                <div class="table-responsive" id="preview-content" style="max-height:400px;overflow-y:auto;">
+                  <!-- Tabela inserida aqui via JS -->
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script type="module" src="assets/js/utils.js"></script>
+  <script type="module" src="assets/js/auth.js"></script>
+  <script type="module" src="assets/js/reports.js"></script>
+</body>
+
+</html>

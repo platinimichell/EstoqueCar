@@ -1,0 +1,166 @@
+// prisma/schema.prisma
+// EstoqueCar — Schema do Banco de Dados
+// Gerado com Prisma ORM 5.x
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── ENUMS ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum DocumentType {
+  CPF
+  CNPJ
+}
+
+enum OrderStatus {
+  PENDING     // Aguardando separação
+  SEPARATED   // Separado, aguardando baixa
+  COMPLETED   // Baixado (saiu do estoque)
+  CANCELLED   // Cancelado
+}
+
+enum MovementType {
+  ENTRY  // Entrada no estoque
+  EXIT   // Saída do estoque
+}
+
+enum ReferenceType {
+  ORDER   // Movimento originado por um pedido
+  MANUAL  // Movimento manual pelo administrador
+}
+
+// ─── MODELS ───────────────────────────────────────────────────────────────────
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String   @db.VarChar(100)
+  email        String   @unique @db.VarChar(150)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  role         Role     @default(USER)
+  firstLogin   Boolean  @default(true) @map("first_login")
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relacionamentos
+  orders         Order[]
+  stockMovements StockMovement[]
+
+  @@map("users")
+}
+
+model Client {
+  id             Int          @id @default(autoincrement())
+  name           String       @db.VarChar(150)
+  documentType   DocumentType @map("document_type")
+  documentNumber String       @unique @map("document_number") @db.VarChar(18)
+  isClient       Boolean      @default(true) @map("is_client")
+  isSupplier     Boolean      @default(false) @map("is_supplier")
+  phone          String?      @db.VarChar(20)
+  email          String?      @db.VarChar(150)
+  address        String?      @db.VarChar(200)
+  city           String?      @db.VarChar(100)
+  state          String?      @db.VarChar(2)
+  zipCode        String?      @map("zip_code") @db.VarChar(10)
+  active         Boolean      @default(true)
+  notes          String?      @db.Text
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  orders Order[]
+
+  @@map("clients")
+}
+
+model Category {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique @db.VarChar(100)
+  description String?   @db.Text
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  products Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id          Int       @id @default(autoincrement())
+  code        String    @unique @db.VarChar(50)
+  name        String    @db.VarChar(150)
+  description String?   @db.Text
+  categoryId  Int       @map("category_id")
+  quantity    Int       @default(0)
+  minQuantity Int       @default(5) @map("min_quantity")
+  unitPrice   Decimal   @map("unit_price") @db.Decimal(10, 2)
+  imageUrl    String?   @map("image_url") @db.VarChar(500)
+  supplier    String?   @db.VarChar(150)
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  category       Category        @relation(fields: [categoryId], references: [id])
+  orderItems     OrderItem[]
+  stockMovements StockMovement[]
+
+  @@map("products")
+}
+
+model Order {
+  id          Int         @id @default(autoincrement())
+  orderNumber String      @unique @map("order_number") @db.VarChar(20)
+  clientId    Int         @map("client_id")
+  userId      Int         @map("user_id")
+  status      OrderStatus @default(PENDING)
+  notes       String?     @db.Text
+  totalAmount Decimal     @default(0) @map("total_amount") @db.Decimal(10, 2)
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  client     Client      @relation(fields: [clientId], references: [id])
+  user       User        @relation(fields: [userId], references: [id])
+  orderItems OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int     @map("order_id")
+  productId Int     @map("product_id")
+  quantity  Int
+  unitPrice Decimal @map("unit_price") @db.Decimal(10, 2)
+  subtotal  Decimal @db.Decimal(10, 2)
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+model StockMovement {
+  id            Int           @id @default(autoincrement())
+  productId     Int           @map("product_id")
+  type          MovementType
+  quantity      Int
+  referenceId   Int?          @map("reference_id")
+  referenceType ReferenceType @default(MANUAL) @map("reference_type")
+  notes         String?       @db.Text
+  userId        Int           @map("user_id")
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@map("stock_movements")
+}

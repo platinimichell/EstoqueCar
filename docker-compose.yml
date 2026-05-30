@@ -1,0 +1,74 @@
+#version: '3.9'
+
+services:
+  # ── Backend ──────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: estoquecar-api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: mysql://estoquecar:estoquecar123@mysql:3306/estoquecar_db
+      JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_change_in_prod}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev_refresh_secret_change_in_prod}
+      JWT_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
+      AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING:-}
+      AZURE_STORAGE_CONTAINER: ${AZURE_STORAGE_CONTAINER:-product-images}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    networks:
+      - estoquecar-net
+
+  # ── Frontend (Nginx) ──────────────────────
+  frontend:
+    image: nginx:alpine
+    container_name: estoquecar-web
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+    networks:
+      - estoquecar-net
+
+  # ── MySQL ─────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: estoquecar-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: estoquecar_db
+      MYSQL_USER: estoquecar
+      MYSQL_PASSWORD: root
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "estoquecar", "-pestoquecar123"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - estoquecar-net
+
+volumes:
+  mysql_data:
+
+networks:
+  estoquecar-net:
+    driver: bridge

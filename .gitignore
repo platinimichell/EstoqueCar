@@ -1,0 +1,40 @@
+# Dependências
+node_modules/
+*/node_modules/
+
+# Build
+dist/
+build/
+*/dist/
+*/build/
+
+# Ambiente
+.env
+*/.env
+backend/.env
+
+# Prisma
+backend/prisma/migrations/
+
+# Logs
+*.log
+logs/
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Cobertura de testes
+coverage/
+*/coverage/
+
+# Docker
+.dockerignore
+
+# Uploads locais
+uploads/

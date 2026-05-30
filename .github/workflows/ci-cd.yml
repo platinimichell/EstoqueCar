@@ -1,0 +1,149 @@
+name: CI/CD — EstoqueCar
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/estoque-car-backend
+
+jobs:
+  # ─────────────── 1. TEST ───────────────
+  test:
+    name: Testes e Lint
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: estoquecar_test
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=5
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Gerar Prisma Client
+        run: npx prisma generate
+        env:
+          DATABASE_URL: mysql://root:root@localhost:3306/estoquecar_test
+
+      - name: Executar migrations (test DB)
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: mysql://root:root@localhost:3306/estoquecar_test
+
+      - name: Rodar testes unitários
+        run: npm run test:unit
+        env:
+          DATABASE_URL: mysql://root:root@localhost:3306/estoquecar_test
+          JWT_SECRET: test_secret_key_ci
+          JWT_REFRESH_SECRET: test_refresh_secret_ci
+
+      - name: Rodar testes de integração
+        run: npm run test:integration
+        env:
+          DATABASE_URL: mysql://root:root@localhost:3306/estoquecar_test
+          JWT_SECRET: test_secret_key_ci
+          JWT_REFRESH_SECRET: test_refresh_secret_ci
+          PORT: 3001
+
+      - name: Upload relatório de cobertura
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: backend/coverage/
+
+  # ─────────────── 2. BUILD ───────────────
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login no GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extrair metadados Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build e push da imagem
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ─────────────── 3. DEPLOY ───────────────
+  deploy:
+    name: Deploy Azure App Service
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    environment: production
+
+    steps:
+      - name: Login no Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy no App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.AZURE_APP_SERVICE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+      - name: Executar migrations em produção
+        uses: azure/CLI@v1
+        with:
+          inlineScript: |
+            az webapp ssh --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+              --name ${{ secrets.AZURE_APP_SERVICE_NAME }} \
+              --command "cd /app && npx prisma migrate deploy"
+
+      - name: Notificar sucesso
+        run: "echo Deploy concluído! App: ${{ secrets.AZURE_APP_SERVICE_NAME }}"
